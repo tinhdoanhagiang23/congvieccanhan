@@ -47,7 +47,7 @@ b,strong{font-weight:700}
 .u-text{min-width:0;flex:1}
 .u-text b,.u-text span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u-text b{font-size:14px}.u-text span{font-size:12px;opacity:.85}
-.content{margin-left:var(--side);padding:28px 32px 48px;max-width:1360px}
+.content{margin-left:var(--side);padding:28px 32px 48px}
 .topbar{display:none}
 .scrim{display:none}
 
