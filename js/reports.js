@@ -281,6 +281,7 @@
         let sJ = 0, sM = 0, sO = 0, sR = 0;
         ofTruc.forEach((t, si) => {
           const x = C.tinhKpi([t]).rows[0];
+          if (!x.k) x.q = 0;
           const pts = C.NHOM_KHO_DIEM[x.nk] || 40;
           const m = pts * x.l, o = m * x.n, rr = m * x.q;
           sJ += pts; sM += m; sO += o; sR += rr;
@@ -296,7 +297,7 @@
         const last = r - 1;
         cell(w2, `B${r}`, `Tổng điểm công việc ${truc}`, { font: bold });
         [["J", sJ], ["M", sM], ["O", sO], ["R", sR]].forEach(([c, v]) =>
-          cell(w2, `${c}${r}`, { formula: `SUM(${c}${first}:${c}${last})`, result: R2(v, 6) }, { font: bold, align: AL.center }));
+          cell(w2, `${c}${r}`, { formula: `ROUND(SUM(${c}${first}:${c}${last}),2)`, result: R2(v, 2) }, { font: bold, align: AL.center }));
         borderRow(w2, r); subRows.push({ r, sJ, sM, sO, sR }); r++;
       });
       const T = subRows.reduce((a, s) => ({ J: a.J + s.sJ, M: a.M + s.sM, O: a.O + s.sO, R: a.R + s.sR }), { J: 0, M: 0, O: 0, R: 0 });
@@ -304,15 +305,17 @@
       const tot = r;
       cell(w2, `B${r}`, `TỔNG ĐIỂM NHÓM ${lbl}`, { font: bold }); cell(w2, `C${r}`, maxD, { font: bold, align: AL.center });
       [["J", T.J], ["M", T.M], ["O", T.O], ["R", T.R]].forEach(([c, v]) =>
-        cell(w2, `${c}${r}`, { formula: sumF(c), result: R2(v, 6) }, { font: bold, align: AL.center }));
+        cell(w2, `${c}${r}`, { formula: `ROUND(${sumF(c)},2)`, result: R2(v, 2) }, { font: bold, align: AL.center }));
       borderRow(w2, r); r++;
       const kpi = T.J ? (T.M / T.J + T.O / T.J + T.R / T.J) / 3 : 0;
       cell(w2, `B${r}`, "ĐIỂM KPI=(A+B+C)/3/Tổng điểm quy đổi", { font: bold });
       cell(w2, `C${r}`, { formula: `IF(J${tot}=0,0,(M${tot}/J${tot}+O${tot}/J${tot}+R${tot}/J${tot})/3)`, result: kpi }, { font: bold, align: AL.center });
+      w2.getCell(`C${r}`).numFmt = "0.0000";
       borderRow(w2, r); r++;
-      const d = kpi * maxD;
+      const d = R2(kpi * maxD);
       cell(w2, `B${r}`, "ĐIỂM THỰC HIỆN=điểm KPI x điểm tối đa của Nhóm", { font: bold });
-      cell(w2, `C${r}`, { formula: `C${r - 1}*C${tot}`, result: d }, { font: bold, align: AL.center });
+      cell(w2, `C${r}`, { formula: `ROUND(C${r - 1}*C${tot},2)`, result: d }, { font: bold, align: AL.center });
+      w2.getCell(`C${r}`).numFmt = "0.00";
       borderRow(w2, r); r += 2;
       return { kpi, d, ref: `C${r - 2}` };
     };
@@ -320,13 +323,15 @@
     const b2 = vietNhom("B", `NHÓM B: NHIỆM VỤ TRỌNG TÂM, THEN CHỐT (${maxB}%=${maxB} điểm)`, grpB, maxB);
     const tong = a2.d + b2.d;
     cell(w2, `B${r}`, "TỔNG ĐIỂM KẾT QUẢ THỰC HIỆN NHIỆM VỤ (A+B)", { font: bold14 });
-    cell(w2, `C${r}`, { formula: `ROUND(${a2.ref}+${b2.ref},2)`, result: R2(tong) }, { font: bold14, align: AL.center }); borderRow(w2, r);
+    cell(w2, `C${r}`, { formula: `ROUND(${a2.ref}+${b2.ref},2)`, result: R2(tong) }, { font: bold14, align: AL.center });
+    w2.getCell(`C${r}`).numFmt = "0.00"; borderRow(w2, r);
 
     // ── Hoàn tất sheet 1: bảng điểm + ký tên ──
     [["A", "Nhóm nhiệm vụ thường xuyên", maxA / tong100, maxA, a2.d], ["B", "Nhóm nhiệm vụ trọng tâm then chốt", maxB / tong100, maxB, b2.d]].forEach(([l, n, k, m, d]) => {
       cell(ws, `A${r0}`, l, { align: AL.center, brd: true });
       cell(ws, `B${r0}`, n, { align: AL.wrap, brd: true });
       cell(ws, `C${r0}`, k, { align: AL.center, brd: true });
+      ws.getCell(`C${r0}`).numFmt = "0.0";
       cell(ws, `D${r0}`, m, { align: AL.center, brd: true });
       cell(ws, `E${r0}`, d, { align: AL.center, brd: true });
       ws.getCell(`E${r0}`).numFmt = "0.00";
