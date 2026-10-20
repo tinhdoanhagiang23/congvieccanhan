@@ -167,46 +167,62 @@
     const bold = F({ bold: true }), bold14 = F({ bold: true, size: 14 }), italic = F({ italic: true });
     const hdrFont = F({ bold: true, color: { argb: "FFFFFFFF" } });
 
-    // ── Sheet 1: MauDG ──
-    const ws = wb.addWorksheet("MauDG", { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    const kdb = new Set(khongDamBao || []);
+    const tenGoi = (info.ten || "").trim().split(/\s+/).pop() || "CaNhan";
+    const fmtNs = (s) => (/^\d{4}-\d{2}-\d{2}/.test(s || "") ? C.fmtD(s) : (s || ""));
+    const dot = (s) => { s = (s || "").trim(); return s && !/[.]$/.test(s) ? s + "." : s; };
+    const tenTruc = (t) => { const s = C.TRUC_TEN[t]; return t === "Trục 4" ? "Kết quả " + s.charAt(0).toLowerCase() + s.slice(1) : s; };
+    const tienDoText = (t, x) => {
+      if (t.trang_thai !== "Hoàn thành") return "Chưa HT";
+      if (x.q >= 1) return "Đúng TĐ";
+      return "Chậm TĐ";
+    };
+
+    // ── Sheet 1: MauDG <Tên> ──
+    const ws = wb.addWorksheet("MauDG " + tenGoi, { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
     [6, 46, 12, 12, 12].forEach((w, i) => { ws.getColumn(i + 1).width = w; });
     cell(ws, "A1", (org.cap_uy || "").toUpperCase(), { font: bold });
     cell(ws, "C1", "ĐẢNG CỘNG SẢN VIỆT NAM", { font: bold });
     cell(ws, "A2", (org.ten_don_vi || "").toUpperCase());
     cell(ws, "C2", C.noiNgay(C.today(), org.dia_danh), { font: italic });
     cell(ws, "A4", "BẢN TỰ ĐÁNH GIÁ, XẾP LOẠI CỦA CÁ NHÂN", { font: bold14, align: AL.center }); merge(ws, "A4:E4");
-    cell(ws, "A5", kyLabel, { font: bold, align: AL.center }); merge(ws, "A5:E5");
-    cell(ws, "A6", "(Kèm theo Công văn số 1619-CV/TU, ngày 16/9/2026 của Ban Thường vụ Tỉnh ủy)", { font: italic, align: AL.center }); merge(ws, "A6:E6");
+    cell(ws, "A5", String(kyLabel).replace(/^(Quý [IV]+)\/\d{4},/, "$1,"), { font: bold, align: AL.center }); merge(ws, "A5:E5");
 
-    let r0 = 8;
-    [["Họ và tên", info.ten], ["Ngày sinh", info.ngay_sinh], ["Chức vụ Đảng", info.chuc_vu_dang],
-      ["Chức vụ chính quyền", info.chuc_vu_cq], ["Chức vụ đoàn thể", info.chuc_vu_dt], ["Đơn vị công tác", info.don_vi_ct]]
-      .forEach(([l, v]) => { cell(ws, `A${r0}`, `${l}: ${v || ""}`); merge(ws, `A${r0}:E${r0}`); r0++; });
+    let r0 = 7;
+    [`Họ và tên: ${info.ten || ""}; Ngày sinh: ${fmtNs(info.ngay_sinh)}.`, `Chức vụ Đảng: ${dot(info.chuc_vu_dang)}`,
+      `Chức vụ chính quyền: ${info.chuc_vu_cq || ""}`, `Chức vụ đoàn thể: ${dot(info.chuc_vu_dt)}`, `Đơn vị công tác: ${dot(info.don_vi_ct)}`]
+      .forEach((txt) => { cell(ws, `B${r0}`, txt); merge(ws, `B${r0}:E${r0}`); r0++; });
 
     r0++;
     cell(ws, `A${r0}`, "1. Tự đánh giá kết quả thực hiện nhiệm vụ: Trên cơ sở nhiệm vụ được giao, cá nhân tự đánh giá về kết quả thực hiện nhiệm vụ theo quý như sau:", { align: AL.wrap });
     merge(ws, `A${r0}:E${r0}`); ws.getRow(r0).height = 32; r0++;
     cell(ws, `A${r0}`, "I", { font: bold, align: { horizontal: "center", vertical: "top" } });
-    cell(ws, `B${r0}`, "NHÓM TIÊU CHÍ CHUNG: Các đồng chí tự đánh giá tiêu chí chung và đánh dấu X vào cột tương ứng", { font: bold, align: AL.wrap });
-    merge(ws, `B${r0}:E${r0}`); ws.getRow(r0).height = 32; r0++;
+    cell(ws, `B${r0}`, "NHÓM TIÊU CHÍ CHUNG:", { font: bold, align: AL.wrap });
+    merge(ws, `B${r0}:E${r0}`); r0++;
     ["TT", "Tiêu chí/Nội dung", "Đảm bảo\n(Đánh dấu X)", "Không đảm bảo\n(Đánh dấu X)"].forEach((h, i) => {
       cell(ws, `${colL(i + 1)}${r0}`, h, { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true });
     });
     merge(ws, `D${r0}:E${r0}`); borderRow(ws, r0, 1, 5); ws.getRow(r0).height = 32; r0++;
-    const kdb = new Set(khongDamBao || []);
+    const XC = { horizontal: "center", vertical: "top" };
     C.MAUDG_TIEUCHI.forEach(([so, ten, items]) => {
-      cell(ws, `A${r0}`, so, { font: bold, brd: true, align: { horizontal: "center", vertical: "top" } });
+      const allOk = items.every((it) => !kdb.has(it));
+      cell(ws, `A${r0}`, so, { font: bold, brd: true, align: XC });
       cell(ws, `B${r0}`, ten, { font: bold, align: AL.wrap, brd: true });
-      merge(ws, `B${r0}:E${r0}`); borderRow(ws, r0, 1, 5);
-      ws.getRow(r0).height = Math.max(18, Math.ceil(ten.length / 80) * 16); r0++;
+      cell(ws, `C${r0}`, allOk ? "X" : "", { font: bold, align: XC, brd: true });
+      cell(ws, `D${r0}`, allOk ? "" : "X", { font: bold, align: XC, brd: true });
+      merge(ws, `D${r0}:E${r0}`); borderRow(ws, r0, 1, 5);
+      ws.getRow(r0).height = Math.max(18, Math.ceil(ten.length / 50) * 15);
+      r0++;
       items.forEach((it) => {
         const ok = !kdb.has(it);
-        cell(ws, `A${r0}`, "", { brd: true });
-        cell(ws, `B${r0}`, it, { align: AL.wrap, brd: true });
-        cell(ws, `C${r0}`, ok ? "X" : "", { align: { horizontal: "center", vertical: "top" }, brd: true });
-        cell(ws, `D${r0}`, ok ? "" : "X", { align: { horizontal: "center", vertical: "top" }, brd: true });
+        const m = /^(\d+\.\d+)\.\s*(.*)$/s.exec(it);
+        const num = m ? m[1] : "", txt = m ? m[2] : it;
+        cell(ws, `A${r0}`, num, { brd: true, align: XC });
+        cell(ws, `B${r0}`, txt, { align: AL.wrap, brd: true });
+        cell(ws, `C${r0}`, ok ? "X" : "", { align: XC, brd: true });
+        cell(ws, `D${r0}`, ok ? "" : "X", { align: XC, brd: true });
         merge(ws, `D${r0}:E${r0}`); borderRow(ws, r0, 1, 5);
-        ws.getRow(r0).height = Math.max(18, Math.ceil(it.length / 62) * 15);
+        ws.getRow(r0).height = Math.max(18, Math.ceil(txt.length / 52) * 15);
         r0++;
       });
     });
@@ -215,8 +231,8 @@
     cell(ws, `A${r0}`, "II", { font: bold, align: { horizontal: "center", vertical: "top" } });
     cell(ws, `B${r0}`, "NHÓM KẾT QUẢ THỰC HIỆN NHIỆM VỤ: Có Phụ lục tiêu chí cho từng nhóm đối tượng, cá nhân tự đánh giá theo Phụ lục tương ứng kèm theo.", { font: bold, align: AL.wrap });
     merge(ws, `B${r0}:E${r0}`); ws.getRow(r0).height = 48; r0++;
-    cell(ws, `A${r0}`, "Tự chấm điểm kết quả thực hiện nhiệm vụ. Trong đó (chi tiết tại Phụ lục 2 — sheet PL2.khoiDang):", { align: AL.wrap });
-    merge(ws, `A${r0}:E${r0}`); ws.getRow(r0).height = 32; r0++;
+    cell(ws, `A${r0}`, "Tự chấm điểm kết quả thực hiện nhiệm vụ. Trong đó:", { align: AL.wrap });
+    merge(ws, `A${r0}:E${r0}`); r0++;
     ["TT", "Nhiệm vụ", "Điểm KPI", "Điểm tối đa", "Điểm đạt được"].forEach((h, i) => {
       cell(ws, `${colL(i + 1)}${r0}`, h, { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true });
     });
@@ -224,18 +240,100 @@
 
     const grpA = tasks.filter((t) => (t.nhom_ab || C.NHOM_AB[0]) === C.NHOM_AB[0]);
     const grpB = tasks.filter((t) => (t.nhom_ab || C.NHOM_AB[0]) === C.NHOM_AB[1]);
-    const kA = C.tinhKpi(grpA), kB = C.tinhKpi(grpB);
-    const dA = kA.kpi * maxA, dB = kB.kpi * maxB, tong = dA + dB;
-    [["A", "Nhóm nhiệm vụ thường xuyên", kA.kpi, maxA, dA], ["B", "Nhóm nhiệm vụ trọng tâm then chốt", kB.kpi, maxB, dB]].forEach(([l, n, k, m, d]) => {
+    const tong100 = (maxA + maxB) || 100;
+
+    // ── Sheet 2: phụ lục (tên gọi) ──
+    const w2 = wb.addWorksheet(tenGoi, { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    [7, 24, 18, 20, 8, 12, 6, 7, 8, 9, 9, 8, 9, 8, 9, 12, 8, 9].forEach((w, i) => { w2.getColumn(i + 1).width = w; });
+    cell(w2, "A1", "PHỤ LỤC 3: ĐỊNH HƯỚNG KHUNG DANH MỤC SẢN PHẨM/CÔNG VIỆC", { font: bold14, align: { horizontal: "center" } }); merge(w2, "A1:R1");
+    cell(w2, "A2", `Họ và tên: ${info.ten || ""}, Chức vụ: ${info.chuc_vu_cq || ""}`, { font: bold }); merge(w2, "A2:R2");
+    let r = 4;
+    cell(w2, `A${r}`, "KẾ HOẠCH TRIỂN KHAI", { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true }); merge(w2, `A${r}:J${r + 1}`);
+    cell(w2, `K${r}`, "KẾT QUẢ THỰC HIỆN", { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true }); merge(w2, `K${r}:R${r}`);
+    cell(w2, `K${r + 1}`, "KPI Số lượng (A)", { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true }); merge(w2, `K${r + 1}:M${r + 1}`);
+    cell(w2, `N${r + 1}`, "KPI Chất lượng (B)", { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true }); merge(w2, `N${r + 1}:O${r + 1}`);
+    cell(w2, `P${r + 1}`, "KPI Tiến độ (C)", { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true }); merge(w2, `P${r + 1}:R${r + 1}`);
+    borderRow(w2, r); borderRow(w2, r + 1); r += 2;
+    ["STT", "Nhiệm vụ đề ra", "Căn cứ xác định nhiệm vụ (C.trình công tác, nhiệm vụ được giao)",
+      "Sản phẩm/kết quả của nhiệm vụ đề ra (Ghi rõ số VB, ngày tháng ban hành để đánh giá tiến độ hoàn thành công việc)",
+      "Số lượng công việc/chỉ tiêu đề ra (ghi rõ số lượng; số liệu phải thực hiện)", "Tiến độ/thời hạn phải hoàn thành nhiệm vụ đề ra",
+      "Nhóm cách xác định mức độ tại PL1; ghi tắt là N1..N5", "Hệ số quy đổi", "Điểm theo danh mục công việc", "Tổng điểm quy đổi theo công việc",
+      "Thực tế hoàn thành (ghi rõ số lượng; số liệu đã thực hiện)", "% mức độ hoàn thành công việc", "Điểm thực hiện thực tế",
+      "Hệ số chất lượng sản phẩm/mức HT chỉ tiêu (các xác định tại PL1)", "Điểm thực hiện thực tế", "Ngày hoàn thành/tỷ lệ HT (các xác định tại PL1)",
+      "Hệ số tiến độ hoàn thành sản phẩm/chỉ tiêu", "Điểm thực hiện thực tế"]
+      .forEach((h, i) => cell(w2, `${colL(i + 1)}${r}`, h, { font: F({ bold: true, size: 9, color: { argb: "FFFFFFFF" } }), align: AL.center, fill: HDR_FILL, brd: true }));
+    w2.getRow(r).height = 120; r++;
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12= 11/5", "13= 10*12", "14", "15= 13*14", "16", "17", "18= 13*17"]
+      .forEach((h, i) => cell(w2, `${colL(i + 1)}${r}`, h, { font: F({ bold: true, size: 9 }), align: AL.center, brd: true }));
+    r++;
+
+    const vietNhom = (lbl, title, list, maxD) => {
+      cell(w2, `A${r}`, title, { font: bold }); merge(w2, `A${r}:R${r}`); borderRow(w2, r); r++;
+      const subRows = [];
+      C.TRUC_LIST.forEach((truc, ti) => {
+        const ofTruc = list.filter((t) => (t.truc || C.TRUC_LIST[0]) === truc);
+        if (!ofTruc.length) return;
+        cell(w2, `A${r}`, truc, { font: bold });
+        cell(w2, `B${r}`, `${tenTruc(truc)} (${C.TRUC_DIEM_KHOI_DANG[truc]}%=${C.TRUC_DIEM_KHOI_DANG[truc]} điểm)`, { font: bold, align: AL.wrap });
+        merge(w2, `B${r}:R${r}`); borderRow(w2, r); w2.getRow(r).height = 20; r++;
+        const first = r;
+        let sJ = 0, sM = 0, sO = 0, sR = 0;
+        ofTruc.forEach((t, si) => {
+          const x = C.tinhKpi([t]).rows[0];
+          const pts = C.NHOM_KHO_DIEM[x.nk] || 40;
+          const m = pts * x.l, o = m * x.n, rr = m * x.q;
+          sJ += pts; sM += m; sO += o; sR += rr;
+          const sp = t.ket_qua || fmtNs(t.ngay_kt) || "";
+          const vals = [`${lbl}.${ti + 1}.${si + 1}`, t.title, t.can_cu_nv || "", sp, x.e, C.fmtD(t.thoi_han_vb), x.nk, x.j, pts, pts,
+            x.k, { formula: `K${r}/E${r}`, result: x.l }, { formula: `J${r}*L${r}`, result: m }, x.n,
+            { formula: `M${r}*N${r}`, result: o }, tienDoText(t, x), x.q, { formula: `M${r}*Q${r}`, result: rr }];
+          vals.forEach((v, i) => cell(w2, `${colL(i + 1)}${r}`, v, { align: [1, 2, 3].includes(i) ? AL.wrap : AL.center, brd: true }));
+          const ln = Math.max(Math.ceil(String(t.title).length / 27), Math.ceil(String(t.can_cu_nv || "").length / 21), Math.ceil(String(sp).length / 23), 1);
+          w2.getRow(r).height = Math.max(18, ln * 14.5 + 4);
+          r++;
+        });
+        const last = r - 1;
+        cell(w2, `B${r}`, `Tổng điểm công việc ${truc}`, { font: bold });
+        [["J", sJ], ["M", sM], ["O", sO], ["R", sR]].forEach(([c, v]) =>
+          cell(w2, `${c}${r}`, { formula: `SUM(${c}${first}:${c}${last})`, result: R2(v, 6) }, { font: bold, align: AL.center }));
+        borderRow(w2, r); subRows.push({ r, sJ, sM, sO, sR }); r++;
+      });
+      const T = subRows.reduce((a, s) => ({ J: a.J + s.sJ, M: a.M + s.sM, O: a.O + s.sO, R: a.R + s.sR }), { J: 0, M: 0, O: 0, R: 0 });
+      const sumF = (c) => subRows.length ? subRows.map((s) => `${c}${s.r}`).join("+") : "0";
+      const tot = r;
+      cell(w2, `B${r}`, `TỔNG ĐIỂM NHÓM ${lbl}`, { font: bold }); cell(w2, `C${r}`, maxD, { font: bold, align: AL.center });
+      [["J", T.J], ["M", T.M], ["O", T.O], ["R", T.R]].forEach(([c, v]) =>
+        cell(w2, `${c}${r}`, { formula: sumF(c), result: R2(v, 6) }, { font: bold, align: AL.center }));
+      borderRow(w2, r); r++;
+      const kpi = T.J ? (T.M / T.J + T.O / T.J + T.R / T.J) / 3 : 0;
+      cell(w2, `B${r}`, "ĐIỂM KPI=(A+B+C)/3/Tổng điểm quy đổi", { font: bold });
+      cell(w2, `C${r}`, { formula: `IF(J${tot}=0,0,(M${tot}/J${tot}+O${tot}/J${tot}+R${tot}/J${tot})/3)`, result: kpi }, { font: bold, align: AL.center });
+      borderRow(w2, r); r++;
+      const d = kpi * maxD;
+      cell(w2, `B${r}`, "ĐIỂM THỰC HIỆN=điểm KPI x điểm tối đa của Nhóm", { font: bold });
+      cell(w2, `C${r}`, { formula: `C${r - 1}*C${tot}`, result: d }, { font: bold, align: AL.center });
+      borderRow(w2, r); r += 2;
+      return { kpi, d, ref: `C${r - 2}` };
+    };
+    const a2 = vietNhom("A", `NHÓM A: NHIỆM VỤ THƯỜNG XUYÊN: ${maxA}%=${maxA} điểm`, grpA, maxA);
+    const b2 = vietNhom("B", `NHÓM B: NHIỆM VỤ TRỌNG TÂM, THEN CHỐT (${maxB}%=${maxB} điểm)`, grpB, maxB);
+    const tong = a2.d + b2.d;
+    cell(w2, `B${r}`, "TỔNG ĐIỂM KẾT QUẢ THỰC HIỆN NHIỆM VỤ (A+B)", { font: bold14 });
+    cell(w2, `C${r}`, { formula: `ROUND(${a2.ref}+${b2.ref},2)`, result: R2(tong) }, { font: bold14, align: AL.center }); borderRow(w2, r);
+
+    // ── Hoàn tất sheet 1: bảng điểm + ký tên ──
+    [["A", "Nhóm nhiệm vụ thường xuyên", maxA / tong100, maxA, a2.d], ["B", "Nhóm nhiệm vụ trọng tâm then chốt", maxB / tong100, maxB, b2.d]].forEach(([l, n, k, m, d]) => {
       cell(ws, `A${r0}`, l, { align: AL.center, brd: true });
       cell(ws, `B${r0}`, n, { align: AL.wrap, brd: true });
-      cell(ws, `C${r0}`, R2(k * 100, 1), { align: AL.center, brd: true });
+      cell(ws, `C${r0}`, k, { align: AL.center, brd: true });
       cell(ws, `D${r0}`, m, { align: AL.center, brd: true });
-      cell(ws, `E${r0}`, R2(d), { align: AL.center, brd: true });
+      cell(ws, `E${r0}`, d, { align: AL.center, brd: true });
+      ws.getCell(`E${r0}`).numFmt = "0.00";
       r0++;
     });
+    cell(ws, `A${r0}`, "", { brd: true });
     cell(ws, `B${r0}`, "Tổng điểm", { font: bold, brd: true });
-    cell(ws, `C${r0}`, "", { align: AL.center, brd: true });
+    cell(ws, `C${r0}`, (maxA + maxB) / tong100, { font: bold, align: AL.center, brd: true });
     cell(ws, `D${r0}`, maxA + maxB, { font: bold, align: AL.center, brd: true });
     cell(ws, `E${r0}`, R2(tong), { font: bold, align: AL.center, brd: true });
     r0++;
@@ -251,65 +349,8 @@
     cell(ws, `A${r0}`, "- Chấm điểm: ……………….........………; Đề xuất xếp loại: ……………………………"); merge(ws, `A${r0}:E${r0}`); r0 += 2;
     cell(ws, `A${r0}`, "- Mức độ đáp ứng đối với các mục tiêu, nhiệm vụ then chốt: …………………………………………\n(Đánh giá rõ mức độ đáp ứng yêu cầu nhiệm vụ theo 3 mức: (1) Chủ động tiếp cận, giải quyết hiệu quả vấn đề, có kết quả cụ thể; (2) Cơ bản đáp ứng yêu cầu nhưng còn hạn chế, cần tiếp tục hoàn thiện; (3) Không đáp ứng yêu cầu nhiệm vụ)", { align: AL.wrap });
     merge(ws, `A${r0}:E${r0}`); ws.getRow(r0).height = 78; r0 += 3;
-    cell(ws, `A${r0}`, "XÁC NHẬN CỦA BAN THƯỜNG VỤ CẤP ỦY\nhoặc TẬP THỂ LÃNH ĐẠO CƠ QUAN, ĐƠN VỊ\n(Xác lập thời điểm, ký, ghi rõ họ tên và đóng dấu)", { font: bold, align: AL.center });
+    cell(ws, `A${r0}`, "XÁC NHẬN CỦA BAN THƯỜNG VỤ CẤP UỶ\nhoặc TẬP THỂ LÃNH ĐẠO CƠ QUAN, ĐƠN VỊ\n(Xác lập thời điểm, ký, ghi rõ họ tên và đóng dấu)", { font: bold, align: AL.center });
     merge(ws, `A${r0}:E${r0}`); ws.getRow(r0).height = 50;
-
-    // ── Sheet 2: PL2.khoiDang ──
-    const w2 = wb.addWorksheet("PL2.khoiDang", { views: [{ showGridLines: false }], pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
-    [7, 24, 18, 20, 8, 12, 6, 7, 7, 7, 9, 8, 9, 8, 9, 12, 8, 9].forEach((w, i) => { w2.getColumn(i + 1).width = w; });
-    cell(w2, "A1", "PHỤ LỤC 2: ĐỊNH HƯỚNG KHUNG DANH MỤC SẢN PHẨM/CÔNG VIỆC — KHỐI ĐẢNG", { font: bold14 }); merge(w2, "A1:R1");
-    cell(w2, "A2", `Họ và tên: ${info.ten}      Chức vụ: ${info.chuc_vu_cq || ""}      ${kyLabel}`); merge(w2, "A2:R2");
-    let r = 4;
-    ["STT", "Nhiệm vụ đề ra", "Căn cứ xác định nhiệm vụ", "Sản phẩm/kết quả", "Số lượng phải TH", "Tiến độ/thời hạn",
-      "Nhóm độ khó", "Hệ số quy đổi", "Điểm theo danh mục", "Tổng điểm quy đổi", "Thực tế hoàn thành", "% mức độ HT",
-      "Điểm TH theo SL", "Hệ số chất lượng", "Điểm TH theo CL", "Ngày hoàn thành", "Hệ số tiến độ", "Điểm TH theo TĐ"]
-      .forEach((h, i) => cell(w2, `${colL(i + 1)}${r}`, h, { font: hdrFont, align: AL.center, fill: HDR_FILL, brd: true }));
-    w2.getRow(r).height = 48; r++;
-
-    const vietNhom = (lbl, title, list, maxD) => {
-      cell(w2, `A${r}`, lbl, { font: bold }); cell(w2, `B${r}`, title, { font: bold }); merge(w2, `B${r}:R${r}`); borderRow(w2, r); r++;
-      C.TRUC_LIST.forEach((truc) => {
-        const ofTruc = list.filter((t) => (t.truc || C.TRUC_LIST[0]) === truc);
-        cell(w2, `A${r}`, truc, { font: bold });
-        cell(w2, `B${r}`, `${C.TRUC_TEN[truc]} (${C.TRUC_DIEM_KHOI_DANG[truc]}%=${C.TRUC_DIEM_KHOI_DANG[truc]} điểm)`, { font: bold, align: AL.wrap });
-        merge(w2, `B${r}:R${r}`); borderRow(w2, r); w2.getRow(r).height = 20; r++;
-        if (!ofTruc.length) { borderRow(w2, r); r++; return; }
-        ofTruc.forEach((t) => {
-          const x = C.tinhKpi([t]).rows[0];
-          const done = t.trang_thai === "Hoàn thành";
-          const vals = ["", t.title, t.can_cu_nv || "", t.ket_qua || "", x.e, C.fmtD(t.thoi_han_vb), x.nk, x.j, C.NHOM_KHO_DIEM[x.nk] || 40, x.j,
-            x.k, { formula: `K${r}/E${r}`, result: x.l }, { formula: `J${r}*L${r}`, result: x.m }, x.n,
-            { formula: `M${r}*N${r}`, result: x.o }, done ? C.fmtD(t.ngay_kt) : "", x.q, { formula: `M${r}*Q${r}`, result: x.r }];
-          vals.forEach((v, i) => cell(w2, `${colL(i + 1)}${r}`, v, { align: [1, 2, 3].includes(i) ? AL.wrap : AL.center, brd: true }));
-          const ln = Math.max(Math.ceil(String(t.title).length / 27), Math.ceil(String(t.can_cu_nv || "").length / 21), Math.ceil(String(t.ket_qua || "").length / 23), 1);
-          w2.getRow(r).height = Math.max(18, ln * 14.5 + 4);
-          r++;
-        });
-      });
-      const k = C.tinhKpi(list);
-      cell(w2, `B${r}`, `TỔNG ĐIỂM NHÓM ${lbl}`, { font: bold });
-      cell(w2, `J${r}`, R2(k.tongJ), { font: bold, align: AL.center }); cell(w2, `M${r}`, R2(k.tongM), { font: bold, align: AL.center });
-      cell(w2, `O${r}`, R2(k.tongO), { font: bold, align: AL.center }); cell(w2, `R${r}`, R2(k.tongR), { font: bold, align: AL.center });
-      borderRow(w2, r); r++;
-      cell(w2, `B${r}`, `ĐIỂM KPI NHÓM ${lbl} = (A+B+C)/3`, { font: bold }); cell(w2, `C${r}`, R2(k.kpi * 100, 1), { font: bold, align: AL.center });
-      borderRow(w2, r); r++;
-      const d = k.kpi * maxD;
-      cell(w2, `B${r}`, `ĐIỂM THỰC HIỆN NHÓM ${lbl} = KPI × điểm tối đa (${maxD})`, { font: bold }); cell(w2, `C${r}`, R2(d), { font: bold, align: AL.center });
-      borderRow(w2, r); r += 2;
-      return d;
-    };
-    const a2 = vietNhom("A", "NHÓM A: NHIỆM VỤ THƯỜNG XUYÊN", grpA, maxA);
-    const b2 = vietNhom("B", "NHÓM B: NHIỆM VỤ TRỌNG TÂM, THEN CHỐT", grpB, maxB);
-    cell(w2, `B${r}`, "TỔNG ĐIỂM KẾT QUẢ THỰC HIỆN NHIỆM VỤ (A+B)", { font: bold14 });
-    cell(w2, `C${r}`, R2(a2 + b2), { font: bold14, align: AL.center }); borderRow(w2, r);
-
-    // ── Sheet 3: tra cứu ──
-    const w3 = wb.addWorksheet("Quydoi (tra cứu)", { views: [{ showGridLines: false }] });
-    cell(w3, "A1", "QUY ĐỔI ĐIỂM THEO NHÓM ĐỘ KHÓ", { font: bold });
-    C.NHOM_KHO_LIST.forEach((nk, i) => { cell(w3, `A${i + 2}`, nk); cell(w3, `B${i + 2}`, C.NHOM_KHO_DIEM[nk]); cell(w3, `C${i + 2}`, C.NHOM_KHO_GOI_Y[nk]); });
-    cell(w3, "A9", "QUY ĐỔI CHẤT LƯỢNG", { font: bold });
-    C.HE_SO_CL_OPTS.forEach(([l, v], i) => { cell(w3, `A${i + 10}`, l); cell(w3, `B${i + 10}`, v); });
-    w3.getColumn(1).width = 55; w3.getColumn(3).width = 45;
 
     const buf = await wb.xlsx.writeBuffer();
     return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
