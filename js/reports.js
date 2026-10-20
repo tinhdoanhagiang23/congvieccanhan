@@ -168,12 +168,13 @@
     const hdrFont = F({ bold: true, color: { argb: "FFFFFFFF" } });
 
     const kdb = new Set(khongDamBao || []);
+    org = Object.assign({}, org, { cap_uy: (org && org.cap_uy) || "Tỉnh ủy Tuyên Quang", ten_don_vi: (org && org.ten_don_vi) || "Ban Tuyên giáo", dia_danh: (org && org.dia_danh) || "Tuyên Quang" });
     const tenGoi = (info.ten || "").trim().split(/\s+/).pop() || "CaNhan";
     const fmtNs = (s) => (/^\d{4}-\d{2}-\d{2}/.test(s || "") ? C.fmtD(s) : (s || ""));
     const dot = (s) => { s = (s || "").trim(); return s && !/[.]$/.test(s) ? s + "." : s; };
     const tenTruc = (t) => { const s = C.TRUC_TEN[t]; return t === "Trục 4" ? "Kết quả " + s.charAt(0).toLowerCase() + s.slice(1) : s; };
     const tienDoText = (t, x) => {
-      if (t.trang_thai !== "Hoàn thành") return "Chưa HT";
+      if (t.trang_thai !== "Hoàn thành" || !x.k) return "Chưa HT";
       if (x.q >= 1) return "Đúng TĐ";
       return "Chậm TĐ";
     };
@@ -190,7 +191,7 @@
 
     let r0 = 7;
     [`Họ và tên: ${info.ten || ""}; Ngày sinh: ${fmtNs(info.ngay_sinh)}.`, `Chức vụ Đảng: ${dot(info.chuc_vu_dang)}`,
-      `Chức vụ chính quyền: ${info.chuc_vu_cq || ""}`, `Chức vụ đoàn thể: ${dot(info.chuc_vu_dt)}`, `Đơn vị công tác: ${dot(info.don_vi_ct)}`]
+      `Chức vụ chính quyền: ${info.chuc_vu_cq || ""}`, `Chức vụ đoàn thể: ${dot(info.chuc_vu_dt) || "Không."}`, `Đơn vị công tác: ${dot(info.don_vi_ct)}`]
       .forEach((txt) => { cell(ws, `B${r0}`, txt); merge(ws, `B${r0}:E${r0}`); r0++; });
 
     r0++;
@@ -283,8 +284,8 @@
           const pts = C.NHOM_KHO_DIEM[x.nk] || 40;
           const m = pts * x.l, o = m * x.n, rr = m * x.q;
           sJ += pts; sM += m; sO += o; sR += rr;
-          const sp = t.ket_qua || fmtNs(t.ngay_kt) || "";
-          const vals = [`${lbl}.${ti + 1}.${si + 1}`, t.title, t.can_cu_nv || "", sp, x.e, C.fmtD(t.thoi_han_vb), x.nk, x.j, pts, pts,
+          const sp = fmtNs(t.ngay_kt) || t.ket_qua || "";
+          const vals = [`${lbl}.${ti + 1}.${si + 1}`, t.title, t.can_cu_nv || "Nhiệm vụ lãnh đạo giao", sp, x.e, C.fmtD(t.thoi_han_vb), x.nk, x.j, pts, pts,
             x.k, { formula: `K${r}/E${r}`, result: x.l }, { formula: `J${r}*L${r}`, result: m }, x.n,
             { formula: `M${r}*N${r}`, result: o }, tienDoText(t, x), x.q, { formula: `M${r}*Q${r}`, result: rr }];
           vals.forEach((v, i) => cell(w2, `${colL(i + 1)}${r}`, v, { align: [1, 2, 3].includes(i) ? AL.wrap : AL.center, brd: true }));
